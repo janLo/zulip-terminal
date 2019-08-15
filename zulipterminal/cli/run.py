@@ -5,9 +5,10 @@ import sys
 import logging
 import requests
 from typing import Dict, Any, List, Optional, Tuple
-from os import path, remove
+from os import path, remove, environ
 
 from urwid import set_encoding
+from zulip import validate_boolean_field
 
 from zulipterminal.core import Controller
 from zulipterminal.model import ServerConnectionFailure
@@ -71,12 +72,26 @@ def get_api_key(realm_url: str) -> Tuple[requests.Response, str]:
 
     email = input(in_color('blue', "Email: "))
     password = getpass(in_color('blue', "Password: "))
+
+    insecure_setting = environ.get('ZULIP_ALLOW_INSECURE')
+
+    insecure = False
+    if insecure_setting is not None:
+        insecure = validate_boolean_field(insecure_setting)
+
+        if insecure is None:
+            raise ValueError("The ZULIP_ALLOW_INSECURE environment "
+                             "variable is set to '{}', it must be "
+                             "'true' or 'false'"
+                             .format(insecure_setting))
+
     response = requests.post(
         url=realm_url + '/api/v1/fetch_api_key',
         data={
             'username': email,
             'password': password,
-        }
+        },
+        verify=(not insecure)
     )
     return response, email
 
